@@ -27,9 +27,14 @@ export default class Bird {
     return this.#y;
   }
   set y(v) {
-    if (v > this.game.GAME_HEIGHT || v < 0 - this.height)
-      this.game.gameIsOver = true;
-    else this.#y = v;
+    if (!this.game.gameIsImported) {
+      this.#y = Math.min(Math.max(v, 0), this.game.GAME_HEIGHT - this.height);
+      if (v < 0 || v > this.game.GAME_HEIGHT - this.height) {
+        this.game.gameIsOver = true;
+      }
+    } else {
+      this.#y = v;
+    }
   }
 
   get hitbox() {

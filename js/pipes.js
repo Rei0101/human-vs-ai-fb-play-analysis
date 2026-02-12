@@ -79,7 +79,7 @@ export default class Pipes {
   }
 
   reset() {
-    this.x = game.PIPE_START_POINT;
+    this.#x = this.game.PIPE_START_POINT;
     this.topY = Math.random() * (this.game.GAME_HEIGHT - this.gap);
     this.botY = this.topY + this.gap;
 

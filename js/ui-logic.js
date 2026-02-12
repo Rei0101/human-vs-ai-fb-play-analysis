@@ -115,42 +115,57 @@ document.getElementById("fileInput").addEventListener("change", function (e) {
 
       let currentFrame = 0;
 
-      function runReplay() {
+      const REPLAY_INTERVAL = 16.67; 
+      let lastTime = 0;
+
+      function runReplay(timestamp) {
         if (currentReplayId !== activeReplayId) return;
 
-        if (currentFrame < frames.length) {
-          const data = frames[currentFrame];
+        if (!lastTime) lastTime = timestamp;
 
-          game.bird.y = data.bird_y;
-          game.bird.velocity = data.bird_velocity;
-          game.points = data.score;
+        const deltaTime = timestamp - lastTime;
 
-          if (data.pipes && data.pipes.length > 0) {
-            game.pipes = data.pipes.map((p) => {
-              const pipe = new Pipes(game);
-              pipe.x = p.x;
-              pipe.topY = p.top_y;
-              pipe.botY = p.bot_y;
-              pipe.passed = p.passed;
-              pipe.topHeight = p.top_y;
-              pipe.botHeight = game.GAME_HEIGHT - p.bot_y;
-              return pipe;
-            });
-          } else {
-            game.pipes = [];
-          }
+        if (deltaTime >= REPLAY_INTERVAL) {
+            lastTime = timestamp - (deltaTime % REPLAY_INTERVAL);
 
-          currentFrame++;
-          requestAnimationFrame(runReplay);
-        } else {
-          game.episodeId = -1;
-          game.gameIsImported = false;
-          game.gameIsOver = true;
-          document.getElementById("fileInput").value = "";
+            if (currentFrame < frames.length) {
+              const data = frames[currentFrame];
+
+              game.bird.y = data.bird_y;
+              game.bird.velocity = data.bird_velocity;
+              game.points = data.score;
+              game.frameId = data.frame_id;
+
+              if (data.pipes && data.pipes.length > 0) {
+                game.pipes = data.pipes.map(p => {
+                  const pipe = new Pipes(game);
+                  pipe.x = p.x;
+                  pipe.topY = p.top_y;
+                  pipe.botY = p.bot_y;
+                  pipe.passed = p.passed;
+                  pipe.topHeight = p.top_y;
+                  pipe.botHeight = game.GAME_HEIGHT - p.bot_y;
+                  return pipe;
+                });
+              } else {
+                  game.pipes = [];
+              }
+
+              currentFrame++;
+            } else {
+              console.log("Replay finished.");
+              game.episodeId = -1;
+              game.gameIsImported = false;
+              game.gameIsOver = true;
+              document.getElementById("fileInput").value = "";
+              return; 
+            }
         }
+
+        requestAnimationFrame(runReplay);
       }
 
-      runReplay();
+      requestAnimationFrame(runReplay);
     } catch (err) {
       console.error(err);
       alert("Failed to import replay: " + err.message);

@@ -29,6 +29,8 @@ export default class Game {
     this.PIPE_VELOCITY = 100;
     this.PIPES_INTERVAL = 3;
     this.FLAPPING_INTERVAL = 0.5;
+    this.FIXED_DT = 0.0167;
+    this.FLAP_COOLDOWN = 9 * this.FIXED_DT;
 
     this.deltaTime = 0;
     this.lastTime = 0;
@@ -93,6 +95,10 @@ export default class Game {
     this.pipes.forEach((pipePair) => pipePair.render(ctx));
 
     this.renderScore();
+
+    if (this.gameIsOver && !this.gameIsImported) {
+      this.renderGameOver(); 
+    }
   }
 
   // Has to be arrow function to preserve the right "this" (.bind() works too)
@@ -110,66 +116,62 @@ export default class Game {
     const dt = this.deltaTime / 1000;
 
     this.accumulator = this.accumulator || 0;
-    const FIXED_DT = 0.0167;
 
     this.accumulator += dt;
 
-    while (this.accumulator >= FIXED_DT) {
+    while (this.accumulator >= this.FIXED_DT) {
       if (!this.gameIsOver) {
-        this.update(FIXED_DT);
-      }
-      this.accumulator -= FIXED_DT;
-    }
+        this.update(this.FIXED_DT);
 
-    if (this.gameIsOver) {
-      this.renderGameOver();
-    } else {
-      this.frameStates.push({
-        episode_id: this.episodeId,
-        frame_id: this.frameId,
-        bird_y: this.bird.y,
-        bird_velocity: this.bird.velocity,
-        action: this.bird.isFlapping ? 1 : 0,
-        pipe_pair_number: this.pipes.length,
-        pipes:
-          this.pipes.length > 0
-            ? btoa(
-                JSON.stringify(
-                  this.pipes.map((pipePair) => ({
-                    x: pipePair.x,
-                    top_y: pipePair.topY,
-                    bot_y: pipePair.botY,
-                    passed: pipePair.passed,
-                  }))
-                )
-              )
-            : "null",
-        score: this.points,
-        game_is_over: this.gameIsOver ? 1 : 0,
-      });
+        // Physics-step accurate timers
+        this.flappingElapsed += this.FIXED_DT;
+        this.pipesElapsed += this.FIXED_DT;
 
-      this.flappingElapsed += dt;
-      this.pipesElapsed += dt;
-
-      if (this.flappingElapsed >= this.FLAPPING_INTERVAL) {
-        if (this.bird.currentImage === this.bird.imageUp) {
-          this.bird.currentImage = this.bird.imageDown;
-        } else {
-          this.bird.currentImage = this.bird.imageUp;
+        if (this.flappingElapsed >= this.FLAPPING_INTERVAL) {
+          this.bird.currentImage =
+            this.bird.currentImage === this.bird.imageUp
+              ? this.bird.imageDown
+              : this.bird.imageUp;
+          this.flappingElapsed = 0;
         }
-        this.flappingElapsed = 0;
-      }
-      if (this.pipesElapsed >= this.PIPES_INTERVAL) {
-        this.addPipePair();
-        this.pipesElapsed = 0;
+
+        if (this.pipesElapsed >= this.PIPES_INTERVAL) {
+          this.addPipePair();
+          this.pipesElapsed = 0;
+        }
+
+        // Log after all updates
+        this.frameStates.push({
+          episode_id: this.episodeId,
+          frame_id: this.frameId,
+          bird_y: this.bird.y,
+          bird_velocity: this.bird.velocity,
+          action: this.bird.isFlapping ? 1 : 0,
+          pipe_pair_number: this.pipes.length,
+          pipes:
+            this.pipes.length > 0
+              ? btoa(
+                  JSON.stringify(
+                    this.pipes.map((pipePair) => ({
+                      x: pipePair.x,
+                      top_y: pipePair.topY,
+                      bot_y: pipePair.botY,
+                      passed: pipePair.passed,
+                    }))
+                  )
+                )
+              : "null",
+          score: this.points,
+          game_is_over: this.gameIsOver ? 1 : 0,
+        });
+        this.bird.isFlapping = false;
+        this.frameId++;
       }
 
-      this.render(this.ctx);
+      this.accumulator -= this.FIXED_DT;
     }
 
-    this.bird.isFlapping = false;
-    this.frameId++;
-
+    this.render(this.ctx);
     requestAnimationFrame(this.gameLoop);
   };
 
@@ -211,7 +213,7 @@ export default class Game {
       if (this.bird.flapCooldown == 0) {
         this.bird.isFlapping = true;
         this.bird.flapWings();
-        this.bird.flapCooldown = 0.15;
+        this.bird.flapCooldown = this.FLAP_COOLDOWN;
       }
     }
   };
